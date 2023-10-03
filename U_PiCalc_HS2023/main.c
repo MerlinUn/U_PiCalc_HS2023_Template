@@ -31,15 +31,23 @@
 #include "ButtonHandler.h"
 
 
-void controllerTask(void* pvParameters);
+void vControllerTask(void* pvParameters);
+void vCalculationTaskLeibniz(void* pvParameters);
+void vCalculationTaskNilakanthaSomayaji(void* pvParamters);
+void vUi_task(void* pvParameters);
+
+double pi_calculated = 0.0;
 
 int main(void)
 {
 	vInitClock();
 	vInitDisplay();
 	
-	xTaskCreate( controllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
-
+	xTaskCreate( vControllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
+	xTaskCreate( vCalculationTaskLeibniz, (const char *) "leibniz_tsk", configMINIMAL_STACK_SIZE+150, NULL, 1, NULL);
+	xTaskCreate( vCalculationTaskNilakanthaSomayaji, (const char *), "nil_som_tsk", configMINIMAL_STACK_SIZE+150, NULL, 1, NULL);
+	xTaskCreate( vUi_task, (const char *) "ui_tsk", configMINIMAL_STACK_SIZE+50, NULL, 2, NULL);
+	
 	vDisplayClear();
 	vDisplayWriteStringAtPos(0,0,"PI-Calc HS2023");
 	
@@ -47,7 +55,52 @@ int main(void)
 	return 0;
 }
 
-void controllerTask(void* pvParameters) {
+
+void vCalculationTaskLeibniz(void* pvParameters){
+	double term = 1.0;
+	int i = 0;
+	
+	for(;;){
+		if(1 % 2 == 0){
+			pi_calculated += term;
+		} else {
+			pi_calculated -= term;
+		}
+		
+		term = 1.0 / (2 * i + 3);
+		i++;
+		
+		if(term < 0.000005){
+			pi_calculated *= 4;
+			break;
+		}
+	}
+}
+
+void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
+	int num_terms = 1;
+	double epsilon = 0.00001;
+	pi_calculated = 3.0;
+	
+	for(;;){
+		int divisor = 2 * num_terms * (2 * num_terms + 1) * (2 * num_terms + 2);
+		double term = 4.0 / divisor;
+		
+		if(num_terms % 2 == 1){
+			pi_calculated += term;
+		} else {
+			pi_calculated -= term;
+		}
+		
+		if (term < epsilon){
+			break;
+		}
+		
+		num_terms++;
+	}
+}
+
+void vControllerTask(void* pvParameters) {
 	initButtons();
 	for(;;) {
 		updateButtons();
