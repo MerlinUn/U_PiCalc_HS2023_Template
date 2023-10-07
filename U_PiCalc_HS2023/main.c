@@ -45,7 +45,7 @@ int main(void)
 	
 	xTaskCreate( vControllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
 	xTaskCreate( vCalculationTaskLeibniz, (const char *) "leibniz_tsk", configMINIMAL_STACK_SIZE+150, NULL, 1, NULL);
-	xTaskCreate( vCalculationTaskNilakanthaSomayaji, (const char *), "nil_som_tsk", configMINIMAL_STACK_SIZE+150, NULL, 1, NULL);
+	xTaskCreate( vCalculationTaskNilakanthaSomayaji, (const char *) "nil_som_tsk", configMINIMAL_STACK_SIZE+150, NULL, 1, NULL);
 	xTaskCreate( vUi_task, (const char *) "ui_tsk", configMINIMAL_STACK_SIZE+50, NULL, 2, NULL);
 	
 	vDisplayClear();
@@ -131,5 +131,11 @@ void vControllerTask(void* pvParameters) {
 			
 		}
 		vTaskDelay(10/portTICK_RATE_MS);
+	}
+}
+
+void vUi_task(void* pvParameters){
+	for(;;){
+		vTaskDelay(100/portTICK_RATE_MS);
 	}
 }
