@@ -36,12 +36,27 @@ void vCalculationTaskLeibniz(void* pvParameters);
 void vCalculationTaskNilakanthaSomayaji(void* pvParamters);
 void vUi_task(void* pvParameters);
 
+
+#define EVBUTTONS_S1	1<<0
+#define EVBUTTONS_S2	1<<1
+#define EVBUTTONS_S3	1<<2
+#define EVBUTTONS_S4	1<<3
+#define EVBUTTONS_L1	1<<4
+#define EVBUTTONS_L2	1<<5
+#define EVBUTTONS_L3	1<<6
+#define EVBUTTONS_L4	1<<7
+#define EVBUTTONS_CLEAR	0xFF
+EventGroupHandle_t evButtonEvents;
+
 double pi_calculated = 0.0;
 
 int main(void)
 {
 	vInitClock();
 	vInitDisplay();
+	
+	//Initialize EventGroups	
+	evButtonEvents = xEventGroupCreate();
 	
 	xTaskCreate( vControllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
 	xTaskCreate( vCalculationTaskLeibniz, (const char *) "leibniz_tsk", configMINIMAL_STACK_SIZE+150, NULL, 1, NULL);
@@ -134,8 +149,18 @@ void vControllerTask(void* pvParameters) {
 	}
 }
 
-void vUi_task(void* pvParameters){
+//UIModes for Finite State Machine
+#define UIMODE_INIT				0
+#define UIMODE_MAIN				1
+#define UIMODE_NIL_SOM_CALC		2
+#define UIMODE_LEIBNIZ_CALC		3
+
+uint8_t uiMode = UIMODE_INIT;
+
+//vUi_task -> to handle the UI
+
+void vUi_task(void* pvParameters){	
 	for(;;){
-		vTaskDelay(100/portTICK_RATE_MS);
+		vTaskDelay(500/portTICK_RATE_MS);
 	}
 }
