@@ -78,7 +78,8 @@ void vCalculationTaskLeibniz(void* pvParameters){
 	int i = 0;
 	
 	for(;;){
-		if(1 % 2 == 0){
+		pi_calculated = 3.14159;
+		/*if(1 % 2 == 0){
 			pi_calculated += term;
 		} else {
 			pi_calculated -= term;
@@ -90,7 +91,7 @@ void vCalculationTaskLeibniz(void* pvParameters){
 		if(term < 0.000005){
 			pi_calculated *= 4;
 			break;
-		}
+		}*/
 	}
 }
 
@@ -100,7 +101,8 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
 	pi_calculated = 3.0;
 	
 	for(;;){
-		int divisor = 2 * num_terms * (2 * num_terms + 1) * (2 * num_terms + 2);
+		pi_calculated = 3.14159;
+		/*int divisor = 2 * num_terms * (2 * num_terms + 1) * (2 * num_terms + 2);
 		double term = 4.0 / divisor;
 		
 		if(num_terms % 2 == 1){
@@ -113,7 +115,7 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
 			break;
 		}
 		
-		num_terms++;
+		num_terms++;*/
 	}
 }
 
@@ -205,7 +207,7 @@ void vUi_task(void* pvParameters){
 				vDisplayWriteStringAtPos(0,0, "Leibniz-Reihe:");
 				vDisplayWriteStringAtPos(1,0, "PI: %f", pi);
 				vDisplayWriteStringAtPos(2,0, "PI: %f", pi_calculated);
-				if(taskStateLeibniz != eRunning){
+				if(taskStateLeibniz == eSuspended){
 					vDisplayWriteStringAtPos(3,4, "Start");
 					vDisplayWriteStringAtPos(3,0, "|<|");
 					vDisplayWriteStringAtPos(3,17, "|>|");
@@ -216,21 +218,27 @@ void vUi_task(void* pvParameters){
 					vDisplayWriteStringAtPos(3,17, "| |");
 					vDisplayWriteStringAtPos(3,11, "|     ");						
 				}
-				if(buttonState & EVBUTTONS_S1){			
-					uiMode = UIMODE_NIL_SOM_CALC;	
+				if(buttonState & EVBUTTONS_S1){
+					if(taskStateLeibniz == eSuspended){			
+						uiMode = UIMODE_NIL_SOM_CALC;
+					}
 				}
 				if(buttonState & EVBUTTONS_S2){
-					if(taskStateLeibniz != eRunning){
+					if(taskStateLeibniz == eSuspended){
 						vTaskResume(vleibniz_tsk);
 					}else{
 						vTaskSuspend(vleibniz_tsk);
 					}
 				}
 				if(buttonState & EVBUTTONS_S3){
-					pi_calculated = 0.0;
+					if(taskStateLeibniz == eSuspended){			
+						pi_calculated = 0.0;
+					}					
 				}
 				if(buttonState & EVBUTTONS_S4){
-					uiMode = UIMODE_NIL_SOM_CALC;
+					if(taskStateLeibniz == eSuspended){
+						uiMode = UIMODE_NIL_SOM_CALC;
+					}
 				}				
 			break;
 			case UIMODE_NIL_SOM_CALC:
@@ -239,32 +247,38 @@ void vUi_task(void* pvParameters){
 				vDisplayWriteStringAtPos(0,0, "Nilakantha-Somayaji-Reihe:");
 				vDisplayWriteStringAtPos(1,0, "PI: 3.14159");
 				vDisplayWriteStringAtPos(2,0, "PI: %f", pi_calculated);
-				if(taskStateNilSom != eRunning){
+				if(taskStateNilSom == eSuspended){
 					vDisplayWriteStringAtPos(3,4, "Start|");
 					vDisplayWriteStringAtPos(3,0, "|<|");
 					vDisplayWriteStringAtPos(3,17, "|>|");
 					vDisplayWriteStringAtPos(3,11, "|Reset");
-					}else{
+				}else{
 					vDisplayWriteStringAtPos(3,4, "Stop |");
 					vDisplayWriteStringAtPos(3,0, "| |");
 					vDisplayWriteStringAtPos(3,17, "| |");
 					vDisplayWriteStringAtPos(3,11, "|     ");
 				}
 				if(buttonState & EVBUTTONS_S1){
-					uiMode = UIMODE_LEIBNIZ_CALC;
+					if(taskStateNilSom == eSuspended){
+						uiMode = UIMODE_LEIBNIZ_CALC;
+					}
 				}
 				if(buttonState & EVBUTTONS_S2){
-					if(taskStateNilSom != eRunning){
+					if(taskStateNilSom == eSuspended){
 						vTaskResume(vnil_som_tsk);
 					}else{
 						vTaskSuspend(vnil_som_tsk);
 					}
 				}
 				if(buttonState & EVBUTTONS_S3){
-					pi_calculated = 0.0;
+					if(taskStateNilSom == eSuspended){
+						pi_calculated = 0.0;						
+					}
 				}
 				if(buttonState & EVBUTTONS_S4){
-					uiMode = UIMODE_LEIBNIZ_CALC;
+					if(taskStateNilSom == eSuspended){
+						uiMode = UIMODE_LEIBNIZ_CALC;
+					}
 				}
 			break;
 		}
