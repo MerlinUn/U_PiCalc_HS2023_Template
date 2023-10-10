@@ -49,8 +49,16 @@ void vUi_task(void* pvParameters);
 #define EVBUTTONS_CLEAR	0xFF
 EventGroupHandle_t evButtonEvents;
 
-long double pi_calculated = 0.0;
-long double pi = 3.14159;
+int pi_integer = 0;
+int pi_decimal = 0;
+double pi_calculated = 0.0;
+double pi = 3.14159;
+
+void separateIntegerAndDecimal(double number, int *integerPart, int *decimalAsInt) {
+	*integerPart = (int)number;
+	double decimal = number - *integerPart;
+	*decimalAsInt = decimal * 100000;
+}
 
 int main(void)
 {
@@ -78,8 +86,7 @@ void vCalculationTaskLeibniz(void* pvParameters){
 	int i = 0;
 	
 	for(;;){
-		pi_calculated = 3.14159;
-		/*if(1 % 2 == 0){
+		if(i % 2 == 0){
 			pi_calculated += term;
 		} else {
 			pi_calculated -= term;
@@ -90,8 +97,9 @@ void vCalculationTaskLeibniz(void* pvParameters){
 		
 		if(term < 0.000005){
 			pi_calculated *= 4;
+			separateIntegerAndDecimal(pi_calculated, &pi_integer, &pi_decimal);
 			break;
-		}*/
+		}
 	}
 }
 
@@ -101,8 +109,7 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
 	pi_calculated = 3.0;
 	
 	for(;;){
-		pi_calculated = 3.14159;
-		/*int divisor = 2 * num_terms * (2 * num_terms + 1) * (2 * num_terms + 2);
+		int divisor = 2 * num_terms * (2 * num_terms + 1) * (2 * num_terms + 2);
 		double term = 4.0 / divisor;
 		
 		if(num_terms % 2 == 1){
@@ -112,10 +119,11 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
 		}
 		
 		if (term < epsilon){
+			separateIntegerAndDecimal(pi_calculated, &pi_integer, &pi_decimal);
 			break;
 		}
 		
-		num_terms++;*/
+		num_terms++;
 	}
 }
 
@@ -205,8 +213,8 @@ void vUi_task(void* pvParameters){
 				vDisplayClear();
 				eTaskState taskStateLeibniz = eTaskGetState(vleibniz_tsk);
 				vDisplayWriteStringAtPos(0,0, "Leibniz-Reihe:");
-				vDisplayWriteStringAtPos(1,0, "PI: %f", pi);
-				vDisplayWriteStringAtPos(2,0, "PI: %f", pi_calculated);
+				vDisplayWriteStringAtPos(1,0, "PI: 3.14159");
+				vDisplayWriteStringAtPos(2,0, "PI: %d.%d", pi_integer, pi_decimal);
 				if(taskStateLeibniz == eSuspended){
 					vDisplayWriteStringAtPos(3,4, "Start");
 					vDisplayWriteStringAtPos(3,0, "|<|");
@@ -246,7 +254,7 @@ void vUi_task(void* pvParameters){
 				eTaskState taskStateNilSom = eTaskGetState(vnil_som_tsk);
 				vDisplayWriteStringAtPos(0,0, "Nilakantha-Somayaji-Reihe:");
 				vDisplayWriteStringAtPos(1,0, "PI: 3.14159");
-				vDisplayWriteStringAtPos(2,0, "PI: %f", pi_calculated);
+				vDisplayWriteStringAtPos(2,0, "PI: %d.%d", pi_integer, pi_decimal);
 				if(taskStateNilSom == eSuspended){
 					vDisplayWriteStringAtPos(3,4, "Start|");
 					vDisplayWriteStringAtPos(3,0, "|<|");
@@ -272,7 +280,9 @@ void vUi_task(void* pvParameters){
 				}
 				if(buttonState & EVBUTTONS_S3){
 					if(taskStateNilSom == eSuspended){
-						pi_calculated = 0.0;						
+						pi_calculated = 0.0;
+						pi_integer = 0;
+						pi_decimal = 0;						
 					}
 				}
 				if(buttonState & EVBUTTONS_S4){
