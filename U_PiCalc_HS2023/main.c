@@ -50,7 +50,16 @@ void vUi_task(void* pvParameters);
 EventGroupHandle_t evButtonEvents;
 
 float pi_calculated = 0.0;
+
+//Leibniz variables
 float term = 0.0;
+int leibniz_approx_count;
+
+//sign variable, used in both algorithm's
+int sign;
+
+//Nilakantha variables
+int numerator;
 
 
 int main(void)
@@ -78,39 +87,42 @@ void vCalculationTaskLeibniz(void* pvParameters){
 	
 	float term = 0;
 	int sign = 1;
-	int k = 0;
+	leibniz_approx_count = 0;
 	
 	for(;;){
 		
-		term += sign*(1.0/(2*k+1));
+		term += sign*(1.0/(2*leibniz_approx_count+1));
 		sign *= (-1);
 		pi_calculated = term*4;
-		k++;
+		leibniz_approx_count++;
 		
 		if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
-			vTaskSuspend(vleibniz_tsk);
 			term = 0;
 			sign = 1;
+			leibniz_approx_count = 0;
+			vTaskSuspend(vleibniz_tsk);
 		}
 	}
 }
 
 void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
-	pi_calculated = 3.0;
-	int num_terms = 1;
 	int sign = 1;
 	int numerator = 2;
 	
 	for(;;){
 		
-        pi_calculated+= sign * (4.0 / (numerator * (numerator + 1) * (numerator + 2)));
+		if (pi_calculated < 3.0){
+			pi_calculated = 3.0;
+		}
+		
+        pi_calculated += sign * (4.0 / (numerator * (numerator + 1) * (numerator + 2)));
         sign *= -1;         
         numerator += 2;     
 		
 		if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
-			vTaskSuspend(vnil_som_tsk);
-			int sign = 1;
-			int numerator = 2;			
+			sign = 1;
+			numerator = 2;		
+			vTaskSuspend(vnil_som_tsk);	
 		}
 
 	}
@@ -218,7 +230,11 @@ void vUi_task(void* pvParameters){
 					vDisplayWriteStringAtPos(3,11, "|     ");						
 				}
 				if(buttonState & EVBUTTONS_S1){
-					if(taskStateLeibniz == eSuspended){			
+					if(taskStateLeibniz == eSuspended){
+						pi_calculated = 0.0;
+						term = 0.0;
+						leibniz_approx_count = 0;
+						sign = 1;									
 						uiMode = UIMODE_NIL_SOM_CALC;
 					}
 				}
@@ -233,10 +249,16 @@ void vUi_task(void* pvParameters){
 					if(taskStateLeibniz == eSuspended){			
 						pi_calculated = 0.0;
 						term = 0.0;
+						leibniz_approx_count = 0;
+						sign = 1;
 					}					
 				}
 				if(buttonState & EVBUTTONS_S4){
 					if(taskStateLeibniz == eSuspended){
+						pi_calculated = 0.0;
+						term = 0.0;
+						leibniz_approx_count = 0;
+						sign = 1;						
 						uiMode = UIMODE_NIL_SOM_CALC;
 					}
 				}				
@@ -260,6 +282,9 @@ void vUi_task(void* pvParameters){
 				}
 				if(buttonState & EVBUTTONS_S1){
 					if(taskStateNilSom == eSuspended){
+						sign = 1;
+						numerator = 2;
+						pi_calculated = 0.0;						
 						uiMode = UIMODE_LEIBNIZ_CALC;
 					}
 				}
@@ -272,12 +297,16 @@ void vUi_task(void* pvParameters){
 				}
 				if(buttonState & EVBUTTONS_S3){
 					if(taskStateNilSom == eSuspended){
-						pi_calculated = 0.0;
-						term = 0.0;				
+						sign = 1;
+						numerator = 2;
+						pi_calculated = 0.0;			
 					}
 				}
 				if(buttonState & EVBUTTONS_S4){
 					if(taskStateNilSom == eSuspended){
+						sign = 1;
+						numerator = 2;
+						pi_calculated = 0.0;						
 						uiMode = UIMODE_LEIBNIZ_CALC;
 					}
 				}
