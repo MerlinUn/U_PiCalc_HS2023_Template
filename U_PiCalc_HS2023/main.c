@@ -51,8 +51,7 @@ EventGroupHandle_t evButtonEvents;
 
 int pi_integer = 0;
 int pi_decimal = 0;
-double pi_calculated = 0.0;
-double pi = 3.14159;
+float pi_calculated = 0.0;
 
 void separateIntegerAndDecimal(double number, int *integerPart, int *decimalAsInt) {
 	*integerPart = (int)number;
@@ -69,8 +68,8 @@ int main(void)
 	evButtonEvents = xEventGroupCreate();
 	
 	xTaskCreate( vControllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
-	xTaskCreate( vCalculationTaskLeibniz, (const char *) "leibniz_tsk", configMINIMAL_STACK_SIZE+150, NULL, 1, &vleibniz_tsk);
-	xTaskCreate( vCalculationTaskNilakanthaSomayaji, (const char *) "nil_som_tsk", configMINIMAL_STACK_SIZE+150, NULL, 1, &vnil_som_tsk);
+	xTaskCreate( vCalculationTaskLeibniz, (const char *) "leibniz_tsk", configMINIMAL_STACK_SIZE+300, NULL, 1, &vleibniz_tsk);
+	xTaskCreate( vCalculationTaskNilakanthaSomayaji, (const char *) "nil_som_tsk", configMINIMAL_STACK_SIZE+300, NULL, 1, &vnil_som_tsk);
 	xTaskCreate( vUi_task, (const char *) "ui_tsk", configMINIMAL_STACK_SIZE+50, NULL, 2, NULL);
 	
 	vTaskSuspend(vnil_som_tsk);
@@ -82,23 +81,20 @@ int main(void)
 
 
 void vCalculationTaskLeibniz(void* pvParameters){
-	double term = 1.0;
-	int i = 0;
+	
+	float term = 0;
+	int sign = 1;
+	int k = 0;
 	
 	for(;;){
-		if(i % 2 == 0){
-			pi_calculated += term;
-		} else {
-			pi_calculated -= term;
-		}
 		
-		term = 1.0 / (2 * i + 3);
-		i++;
+		term += sign*(1.0/(2*k+1));
+		sign *= (-1);
+		pi_calculated = term*4;
+		k++;
 		
-		if(term < 0.000005){
-			pi_calculated *= 4;
-			separateIntegerAndDecimal(pi_calculated, &pi_integer, &pi_decimal);
-			break;
+		if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
+			vTaskSuspend(vleibniz_tsk);
 		}
 	}
 }
@@ -106,9 +102,9 @@ void vCalculationTaskLeibniz(void* pvParameters){
 void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
 	int num_terms = 1;
 	double epsilon = 0.00001;
-	pi_calculated = 3.0;
+	pi_calculated = 3.14159;
 	
-	for(;;){
+	/*for(;;){
 		int divisor = 2 * num_terms * (2 * num_terms + 1) * (2 * num_terms + 2);
 		double term = 4.0 / divisor;
 		
@@ -124,7 +120,7 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
 		}
 		
 		num_terms++;
-	}
+	}*/
 }
 
 void vControllerTask(void* pvParameters) {
@@ -163,6 +159,8 @@ void vUi_task(void* pvParameters){
 		
 	for(;;){
 		vDisplayClear();
+		char pistring[12];
+		sprintf(&pistring[0], "PI: %.8f", pi_calculated);
 		uint32_t buttonState = (xEventGroupGetBits(evButtonEvents)) & 0x000000FF;
 		xEventGroupClearBits(evButtonEvents, EVBUTTONS_CLEAR);
 		switch(uiMode){
@@ -214,7 +212,7 @@ void vUi_task(void* pvParameters){
 				eTaskState taskStateLeibniz = eTaskGetState(vleibniz_tsk);
 				vDisplayWriteStringAtPos(0,0, "Leibniz-Reihe:");
 				vDisplayWriteStringAtPos(1,0, "PI: 3.14159");
-				vDisplayWriteStringAtPos(2,0, "PI: %d.%d", pi_integer, pi_decimal);
+				vDisplayWriteStringAtPos(2,0, "%s", pistring);
 				if(taskStateLeibniz == eSuspended){
 					vDisplayWriteStringAtPos(3,4, "Start");
 					vDisplayWriteStringAtPos(3,0, "|<|");
