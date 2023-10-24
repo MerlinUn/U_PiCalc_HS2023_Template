@@ -49,6 +49,16 @@ void vUi_task(void* pvParameters);
 #define EVBUTTONS_CLEAR	0xFF
 EventGroupHandle_t evButtonEvents;
 
+#define EVCALC_RUN      1<<0 //Task is free to run now
+#define EVCALC_WAIT     1<<1 //Task must wait now
+#define EVCALC_RUNNING  1<<2 //Task is running
+#define EVCALC_WAITING  1<<3 //Task is waiting
+#define EVCALC_RESET    1<<4 //Reset the all variables for the calculation
+#define EVCALC_CLEAR    0xFF
+EventGroupHandle_t evCalcTaskEvents;
+
+
+
 TickType_t startTime, endTime;
 
 int time_ms = 0;
@@ -90,6 +100,8 @@ void vCalculationTaskLeibniz(void* pvParameters){
 	
 	
 	for(;;){
+		
+		uint32_t calcStateLBNZ = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
 			
 		term += sign*(1.0/(2*leibniz_approx_count+1));
 		sign *= (-1);
@@ -107,19 +119,26 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
 
 	for(;;){
 		
-		if (pi_calculated < 3.0){
-			pi_calculated = 3.0;
-		}
+		uint32_t calcStateNIL = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
+		xEventGroupClearBits(evButtonEvents, EVCALC_CLEAR);
 		
-        pi_calculated += sign * (4.0 / (numerator * (numerator + 1) * (numerator + 2)));
-        sign *= -1;         
-        numerator += 2;     
-		
-		if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
-			endTime = xTaskGetTickCount();
-			time_ms = (endTime - startTime) * portTICK_PERIOD_MS;
+		if(calcStateNIL & EVCALC_RUN){
+			
+			if (pi_calculated < 3.0){
+				pi_calculated = 3.0;
+			}
+			
+		    pi_calculated += sign * (4.0 / (numerator * (numerator + 1) * (numerator + 2)));
+		    sign *= -1;         
+		    numerator += 2;     
+			
+			if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
+				endTime = xTaskGetTickCount();
+				time_ms = (endTime - startTime) * portTICK_PERIOD_MS;
+			}
+		}else{
+			xEventGroupSetBits(evCalcTaskEvents, EVCALC_WAITING);
 		}
-
 	}
 }
 
@@ -161,10 +180,21 @@ void vUi_task(void* pvParameters){
 		
 	for(;;){
 		vDisplayClear();
-		sprintf(&pistring[0], "PI: %.8f", pi_calculated);
-		sprintf(&timeString[0], "Time: %.8d ms", time_ms);
+		
+		uint32_t calcStateUI = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
+		xEventGroupClearBits(evCalcTaskEvents, EVCALC_CLEAR);
+		
+		if(calcStateUI & EVCALC_WAITING){
+			sprintf(&pistring[0], "PI: %.8f", pi_calculated);
+			sprintf(&timeString[0], "Time: %.8d ms", time_ms);
+		}else{
+			
+		}
+		
 		uint32_t buttonState = (xEventGroupGetBits(evButtonEvents)) & 0x000000FF;
+		uint32_t calcStateUI = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
 		xEventGroupClearBits(evButtonEvents, EVBUTTONS_CLEAR);
+		
 		switch(uiMode){
 			case UIMODE_INIT:{
 				vDisplayWriteStringAtPos(0,0,"PI-Calc HS2023");
