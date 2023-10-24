@@ -49,18 +49,20 @@ void vUi_task(void* pvParameters);
 #define EVBUTTONS_CLEAR	0xFF
 EventGroupHandle_t evButtonEvents;
 
+TickType_t startTime, endTime;
+
 int time_ms = 0;
 float pi_calculated = 0.0;
 
 //Leibniz variables
 float term = 0.0;
-int leibniz_approx_count;
+int leibniz_approx_count = 0;
 
 //sign variable, used in both algorithm's
-int sign;
+int sign = 1;
 
 //Nilakantha variables
-int numerator;
+int numerator = 2;
 
 
 int main(void)
@@ -86,30 +88,23 @@ int main(void)
 
 void vCalculationTaskLeibniz(void* pvParameters){
 	
-	float term = 0;
-	int sign = 1;
-	leibniz_approx_count = 0;
 	
 	for(;;){
-		
+			
 		term += sign*(1.0/(2*leibniz_approx_count+1));
 		sign *= (-1);
 		pi_calculated = term*4;
 		leibniz_approx_count++;
 		
 		if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
-			term = 0;
-			sign = 1;
-			leibniz_approx_count = 0;
-			vTaskSuspend(vleibniz_tsk);
+			endTime = xTaskGetTickCount();
+			time_ms = (endTime - startTime) * portTICK_PERIOD_MS;
 		}
 	}
 }
 
 void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
-	int sign = 1;
-	int numerator = 2;
-	
+
 	for(;;){
 		
 		if (pi_calculated < 3.0){
@@ -121,9 +116,8 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
         numerator += 2;     
 		
 		if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
-			sign = 1;
-			numerator = 2;		
-			vTaskSuspend(vnil_som_tsk);	
+			endTime = xTaskGetTickCount();
+			time_ms = (endTime - startTime) * portTICK_PERIOD_MS;
 		}
 
 	}
@@ -237,12 +231,14 @@ void vUi_task(void* pvParameters){
 						pi_calculated = 0.0;
 						term = 0.0;
 						leibniz_approx_count = 0;
-						sign = 1;									
+						sign = 1;		
+						time_ms = 0;							
 						uiMode = UIMODE_NIL_SOM_CALC;
 					}
 				}
 				if(buttonState & EVBUTTONS_S2){
 					if(taskStateLeibniz == eSuspended){
+						startTime = xTaskGetTickCount();
 						vTaskResume(vleibniz_tsk);
 					}else{
 						vTaskSuspend(vleibniz_tsk);
@@ -254,6 +250,7 @@ void vUi_task(void* pvParameters){
 						term = 0.0;
 						leibniz_approx_count = 0;
 						sign = 1;
+						time_ms = 0;
 					}					
 				}
 				if(buttonState & EVBUTTONS_S4){
@@ -261,7 +258,8 @@ void vUi_task(void* pvParameters){
 						pi_calculated = 0.0;
 						term = 0.0;
 						leibniz_approx_count = 0;
-						sign = 1;						
+						sign = 1;
+						time_ms = 0;						
 						uiMode = UIMODE_NIL_SOM_CALC;
 					}
 				}				
@@ -287,12 +285,14 @@ void vUi_task(void* pvParameters){
 					if(taskStateNilSom == eSuspended){
 						sign = 1;
 						numerator = 2;
-						pi_calculated = 0.0;						
+						pi_calculated = 0.0;
+						time_ms = 0;						
 						uiMode = UIMODE_LEIBNIZ_CALC;
 					}
 				}
 				if(buttonState & EVBUTTONS_S2){
 					if(taskStateNilSom == eSuspended){
+						startTime = xTaskGetTickCount();
 						vTaskResume(vnil_som_tsk);
 					}else{
 						vTaskSuspend(vnil_som_tsk);
@@ -302,14 +302,16 @@ void vUi_task(void* pvParameters){
 					if(taskStateNilSom == eSuspended){
 						sign = 1;
 						numerator = 2;
-						pi_calculated = 0.0;			
+						pi_calculated = 0.0;
+						time_ms = 0;			
 					}
 				}
 				if(buttonState & EVBUTTONS_S4){
 					if(taskStateNilSom == eSuspended){
 						sign = 1;
 						numerator = 2;
-						pi_calculated = 0.0;						
+						pi_calculated = 0.0;
+						time_ms = 0;						
 						uiMode = UIMODE_LEIBNIZ_CALC;
 					}
 				}
