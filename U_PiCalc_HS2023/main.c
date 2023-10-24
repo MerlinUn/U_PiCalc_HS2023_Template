@@ -49,6 +49,7 @@ void vUi_task(void* pvParameters);
 #define EVBUTTONS_CLEAR	0xFF
 EventGroupHandle_t evButtonEvents;
 
+int time_ms = 0;
 float pi_calculated = 0.0;
 
 //Leibniz variables
@@ -159,13 +160,15 @@ uint8_t uiMode = UIMODE_INIT;
 
 void vUi_task(void* pvParameters){
 	
-	char timestring[20] = "               ";
+	char loadString[20] = "               ";
+	char pistring[20];
+	char timeString[20];
 	uint8_t uidelay = 10;
 		
 	for(;;){
 		vDisplayClear();
-		char pistring[12];
 		sprintf(&pistring[0], "PI: %.8f", pi_calculated);
+		sprintf(&timeString[0], "Time: %.8d ms", time_ms);
 		uint32_t buttonState = (xEventGroupGetBits(evButtonEvents)) & 0x000000FF;
 		xEventGroupClearBits(evButtonEvents, EVBUTTONS_CLEAR);
 		switch(uiMode){
@@ -173,37 +176,37 @@ void vUi_task(void* pvParameters){
 				vDisplayWriteStringAtPos(0,0,"PI-Calc HS2023");
 				switch(uidelay) {
 					case 10:
-					timestring[0] = '.';
+					loadString[0] = '.';
 					break;
 					case 9:
-					timestring[1] = '.';
+					loadString[1] = '.';
 					break;
 					case 8:
-					timestring[2] = '.';
+					loadString[2] = '.';
 					break;
 					case 7:
-					timestring[3] = '.';
+					loadString[3] = '.';
 					break;
 					case 6:
-					timestring[4] = '.';
+					loadString[4] = '.';
 					break;
 					case 5:
-					timestring[5] = '.';
+					loadString[5] = '.';
 					break;
 					case 4:
-					timestring[6] = '.';
+					loadString[6] = '.';
 					break;
 					case 3:
-					timestring[7] = '.';
+					loadString[7] = '.';
 					break;
 					case 2:
-					timestring[8] = '.';
+					loadString[8] = '.';
 					break;
 					case 1:
-					timestring[9] = '.';
+					loadString[9] = '.';
 					break;
 				}
-				vDisplayWriteStringAtPos(2,0, "Loading.%s", timestring);
+				vDisplayWriteStringAtPos(2,0, "Loading.%s", loadString);
 				if(uidelay > 0){
 					uidelay--;
 				}else{
@@ -216,8 +219,8 @@ void vUi_task(void* pvParameters){
 				vDisplayClear();
 				eTaskState taskStateLeibniz = eTaskGetState(vleibniz_tsk);
 				vDisplayWriteStringAtPos(0,0, "Leibniz-Reihe:");
-				vDisplayWriteStringAtPos(1,0, "PI: 3.14159");
-				vDisplayWriteStringAtPos(2,0, "%s", pistring);
+				vDisplayWriteStringAtPos(1,0, "%s", pistring);
+				vDisplayWriteStringAtPos(2,0, "%s", timeString);
 				if(taskStateLeibniz == eSuspended){
 					vDisplayWriteStringAtPos(3,4, "Start");
 					vDisplayWriteStringAtPos(3,0, "|<|");
@@ -267,8 +270,8 @@ void vUi_task(void* pvParameters){
 				vDisplayClear();
 				eTaskState taskStateNilSom = eTaskGetState(vnil_som_tsk);
 				vDisplayWriteStringAtPos(0,0, "Nilakantha-Reihe:");
-				vDisplayWriteStringAtPos(1,0, "PI: 3.14159");
-				vDisplayWriteStringAtPos(2,0, "%s", pistring);
+				vDisplayWriteStringAtPos(1,0, "%s", pistring);
+				vDisplayWriteStringAtPos(2,0, "%s", timeString);
 				if(taskStateNilSom == eSuspended){
 					vDisplayWriteStringAtPos(3,4, "Start|");
 					vDisplayWriteStringAtPos(3,0, "|<|");
