@@ -42,20 +42,17 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParamters);
 void vUi_task(void* pvParameters);
 
 
-#define EVBUTTONS_S1	1<<0 //Switch between Pi calculation algorithm
-#define EVBUTTONS_S2	1<<1 //Start Pi calculation
-#define EVBUTTONS_S3	1<<2 //Stop Pi calculation
-#define EVBUTTONS_S4	1<<3 //Reset selected algorithm
-#define EVBUTTONS_CLEAR	0xFF
+#define EVBUTTONS_S1			1<<0 //Switch between Pi calculation algorithm
+#define EVBUTTONS_S2			1<<1 //Start Pi calculation
+#define EVBUTTONS_S3			1<<2 //Stop Pi calculation
+#define EVBUTTONS_S4			1<<3 //Reset selected algorithm
+#define EVBUTTONS_CLEAR			0xFF
 EventGroupHandle_t evButtonEvents;
 
-#define EVCALC_RUN      1<<0 //Task is free to run now
-#define EVCALC_WAIT     1<<1 //Task must wait now
-#define EVCALC_RUNNING  1<<2 //Task is running
-#define EVCALC_WAITING  1<<3 //Task is waiting
-#define EVCALC_RESET    1<<4 //Reset the all variables for the calculation
-#define EVCALC_CLEAR    0xFF
+#define EVCALC_WAIT				1<<0 //Task must wait now
+#define EVCALC_WAITING			1<<1 //Task confirmed he is waiting
 EventGroupHandle_t evCalcTaskEvents;
+uint32_t calcStateBits;
 
 
 
@@ -82,6 +79,7 @@ int main(void)
 	
 	//Initialize EventGroups	
 	evButtonEvents = xEventGroupCreate();
+	evCalcTaskEvents = xEventGroupCreate();
 	
 	xTaskCreate( vControllerTask, (const char *) "control_tsk", configMINIMAL_STACK_SIZE+150, NULL, 3, NULL);
 	xTaskCreate( vCalculationTaskLeibniz, (const char *) "leibniz_tsk", configMINIMAL_STACK_SIZE+300, NULL, 1, &vleibniz_tsk);
@@ -96,21 +94,40 @@ int main(void)
 }
 
 
+//Finite state machine for calculation tasks
+#define RUN				0
+#define WAIT			1
+
+uint8_t smCalc = WAIT;
+ 
 void vCalculationTaskLeibniz(void* pvParameters){
 	
 	
 	for(;;){
+		calcStateBits = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
 		
-		uint32_t calcStateLBNZ = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
+		if(calcStateBits & EVCALC_WAIT){
+			smCalc = WAIT;
+		}else{
+			smCalc = RUN;
+		}
+		
+		switch(smCalc){
+			case RUN:				
+				term += sign*(1.0/(2*leibniz_approx_count+1));
+				sign *= (-1);
+				pi_calculated = term*4;
+				leibniz_approx_count++;
+				
+				if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
+					endTime = xTaskGetTickCount();
+					time_ms = (endTime - startTime) * portTICK_PERIOD_MS;
+				}
+			break;
 			
-		term += sign*(1.0/(2*leibniz_approx_count+1));
-		sign *= (-1);
-		pi_calculated = term*4;
-		leibniz_approx_count++;
-		
-		if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
-			endTime = xTaskGetTickCount();
-			time_ms = (endTime - startTime) * portTICK_PERIOD_MS;
+			case WAIT:
+				xEventGroupSetBits(evCalcTaskEvents, EVCALC_WAITING);				
+			break;
 		}
 	}
 }
@@ -119,25 +136,32 @@ void vCalculationTaskNilakanthaSomayaji(void* pvParameters){
 
 	for(;;){
 		
-		uint32_t calcStateNIL = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
-		xEventGroupClearBits(evButtonEvents, EVCALC_CLEAR);
+		calcStateBits = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
 		
-		if(calcStateNIL & EVCALC_RUN){
-			
-			if (pi_calculated < 3.0){
-				pi_calculated = 3.0;
-			}
-			
-		    pi_calculated += sign * (4.0 / (numerator * (numerator + 1) * (numerator + 2)));
-		    sign *= -1;         
-		    numerator += 2;     
-			
-			if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
-				endTime = xTaskGetTickCount();
-				time_ms = (endTime - startTime) * portTICK_PERIOD_MS;
-			}
-		}else{
-			xEventGroupSetBits(evCalcTaskEvents, EVCALC_WAITING);
+		if(calcStateBits & EVCALC_WAIT){
+			smCalc = WAIT;
+		}else {
+			smCalc = RUN;
+		}
+		
+		switch(smCalc){
+			case RUN:	
+				if (pi_calculated < 3.0){
+					pi_calculated = 3.0;
+				}
+				
+				pi_calculated += sign * (4.0 / (numerator * (numerator + 1) * (numerator + 2)));
+				sign *= -1;
+				numerator += 2;
+				
+				if(pi_calculated > 3.14159 && pi_calculated < 3.1416){
+					endTime = xTaskGetTickCount();
+					time_ms = (endTime - startTime) * portTICK_PERIOD_MS;
+				}
+			break;
+			case WAIT:
+				xEventGroupSetBits(evCalcTaskEvents, EVCALC_WAITING);					
+			break;
 		}
 	}
 }
@@ -173,179 +197,149 @@ uint8_t uiMode = UIMODE_INIT;
 
 void vUi_task(void* pvParameters){
 	
-	char loadString[20] = "               ";
 	char pistring[20];
 	char timeString[20];
-	uint8_t uidelay = 10;
+	EventBits_t bitsCalcTskEv;
 		
 	for(;;){
-		vDisplayClear();
 		
-		uint32_t calcStateUI = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
-		xEventGroupClearBits(evCalcTaskEvents, EVCALC_CLEAR);
+		eTaskState taskStateNilSom = eTaskGetState(vnil_som_tsk);
+		eTaskState taskStateLeibniz = eTaskGetState(vleibniz_tsk);
+
+		xEventGroupSetBits(evCalcTaskEvents, EVCALC_WAIT);
 		
-		if(calcStateUI & EVCALC_WAITING){
+		if(!((taskStateLeibniz == eSuspended) & (taskStateNilSom == eSuspended))){
+			vDisplayClear();
+			bitsCalcTskEv = xEventGroupWaitBits(evCalcTaskEvents, EVCALC_WAITING, pdTRUE, pdTRUE, portMAX_DELAY);
+		}
+
+		if((bitsCalcTskEv & EVCALC_WAITING) || ((taskStateLeibniz == eSuspended) & (taskStateNilSom == eSuspended))){	
+			
+			vDisplayClear();				
 			sprintf(&pistring[0], "PI: %.8f", pi_calculated);
 			sprintf(&timeString[0], "Time: %.8d ms", time_ms);
-		}else{
+
 			
-		}
-		
-		uint32_t buttonState = (xEventGroupGetBits(evButtonEvents)) & 0x000000FF;
-		uint32_t calcStateUI = (xEventGroupGetBits(evCalcTaskEvents)) & 0x000000FF;
-		xEventGroupClearBits(evButtonEvents, EVBUTTONS_CLEAR);
-		
-		switch(uiMode){
-			case UIMODE_INIT:{
-				vDisplayWriteStringAtPos(0,0,"PI-Calc HS2023");
-				switch(uidelay) {
-					case 10:
-					loadString[0] = '.';
-					break;
-					case 9:
-					loadString[1] = '.';
-					break;
-					case 8:
-					loadString[2] = '.';
-					break;
-					case 7:
-					loadString[3] = '.';
-					break;
-					case 6:
-					loadString[4] = '.';
-					break;
-					case 5:
-					loadString[5] = '.';
-					break;
-					case 4:
-					loadString[6] = '.';
-					break;
-					case 3:
-					loadString[7] = '.';
-					break;
-					case 2:
-					loadString[8] = '.';
-					break;
-					case 1:
-					loadString[9] = '.';
-					break;
-				}
-				vDisplayWriteStringAtPos(2,0, "Loading.%s", loadString);
-				if(uidelay > 0){
-					uidelay--;
-				}else{
+			uint32_t buttonState = (xEventGroupGetBits(evButtonEvents)) & 0x000000FF;
+			xEventGroupClearBits(evButtonEvents, EVBUTTONS_CLEAR);
+			
+			switch(uiMode){
+				case UIMODE_INIT:				
 					uiMode = UIMODE_LEIBNIZ_CALC;
-				}
+				break;
+				
+				case UIMODE_LEIBNIZ_CALC:
+					vDisplayClear();
+					eTaskState taskStateLeibniz = eTaskGetState(vleibniz_tsk);
+					vDisplayWriteStringAtPos(0,0, "Leibniz-Reihe:");
+					vDisplayWriteStringAtPos(1,0, "%s", pistring);
+					vDisplayWriteStringAtPos(2,0, "%s", timeString);
+					
+					if(taskStateLeibniz == eSuspended){
+						vDisplayWriteStringAtPos(3,4, "Start");
+						vDisplayWriteStringAtPos(3,0, "|<|");
+						vDisplayWriteStringAtPos(3,17, "|>|");
+						vDisplayWriteStringAtPos(3,11, "|Reset");
+					}else{
+						vDisplayWriteStringAtPos(3,4, "Stop |");
+						vDisplayWriteStringAtPos(3,0, "| |");
+						vDisplayWriteStringAtPos(3,17, "| |");
+						vDisplayWriteStringAtPos(3,11, "|     ");						
+					}
+					if(buttonState & EVBUTTONS_S1){
+						if(taskStateLeibniz == eSuspended){
+							pi_calculated = 0.0;
+							term = 0.0;
+							leibniz_approx_count = 0;
+							sign = 1;		
+							time_ms = 0;							
+							uiMode = UIMODE_NIL_SOM_CALC;
+						}
+					}
+					if(buttonState & EVBUTTONS_S2){
+						if(taskStateLeibniz == eSuspended){
+							startTime = xTaskGetTickCount();
+							vTaskResume(vleibniz_tsk);
+						}else{
+							vTaskSuspend(vleibniz_tsk);
+						}
+					}
+					if(buttonState & EVBUTTONS_S3){
+						if(taskStateLeibniz == eSuspended){			
+							pi_calculated = 0.0;
+							term = 0.0;
+							leibniz_approx_count = 0;
+							sign = 1;
+							time_ms = 0;
+						}					
+					}
+					if(buttonState & EVBUTTONS_S4){
+						if(taskStateLeibniz == eSuspended){
+							pi_calculated = 0.0;
+							term = 0.0;
+							leibniz_approx_count = 0;
+							sign = 1;
+							time_ms = 0;						
+							uiMode = UIMODE_NIL_SOM_CALC;
+						}
+					}				
+				break;
+				case UIMODE_NIL_SOM_CALC:
+					vDisplayClear();
+					vDisplayWriteStringAtPos(0,0, "Nilakantha-Reihe:");
+					vDisplayWriteStringAtPos(1,0, "%s", pistring);
+					vDisplayWriteStringAtPos(2,0, "%s", timeString);
+					if(taskStateNilSom == eSuspended){
+						vDisplayWriteStringAtPos(3,4, "Start|");
+						vDisplayWriteStringAtPos(3,0, "|<|");
+						vDisplayWriteStringAtPos(3,17, "|>|");
+						vDisplayWriteStringAtPos(3,11, "|Reset");
+					}else{
+						vDisplayWriteStringAtPos(3,4, "Stop |");
+						vDisplayWriteStringAtPos(3,0, "| |");
+						vDisplayWriteStringAtPos(3,17, "| |");
+						vDisplayWriteStringAtPos(3,11, "|     ");
+					}
+					if(buttonState & EVBUTTONS_S1){
+						if(taskStateNilSom == eSuspended){
+							sign = 1;
+							numerator = 2;
+							pi_calculated = 0.0;
+							time_ms = 0;						
+							uiMode = UIMODE_LEIBNIZ_CALC;
+						}
+					}
+					if(buttonState & EVBUTTONS_S2){
+						if(taskStateNilSom == eSuspended){
+							startTime = xTaskGetTickCount();
+							vTaskResume(vnil_som_tsk);
+						}else{
+							vTaskSuspend(vnil_som_tsk);
+						}
+					}
+					if(buttonState & EVBUTTONS_S3){
+						if(taskStateNilSom == eSuspended){
+							sign = 1;
+							numerator = 2;
+							pi_calculated = 0.0;
+							time_ms = 0;			
+						}
+					}
+					if(buttonState & EVBUTTONS_S4){
+						if(taskStateNilSom == eSuspended){
+							sign = 1;
+							numerator = 2;
+							pi_calculated = 0.0;
+							time_ms = 0;						
+							uiMode = UIMODE_LEIBNIZ_CALC;
+						}
+					}			
+				break;
 			}
-			break;
 			
-			case UIMODE_LEIBNIZ_CALC:
-				vDisplayClear();
-				eTaskState taskStateLeibniz = eTaskGetState(vleibniz_tsk);
-				vDisplayWriteStringAtPos(0,0, "Leibniz-Reihe:");
-				vDisplayWriteStringAtPos(1,0, "%s", pistring);
-				vDisplayWriteStringAtPos(2,0, "%s", timeString);
-				if(taskStateLeibniz == eSuspended){
-					vDisplayWriteStringAtPos(3,4, "Start");
-					vDisplayWriteStringAtPos(3,0, "|<|");
-					vDisplayWriteStringAtPos(3,17, "|>|");
-					vDisplayWriteStringAtPos(3,11, "|Reset");
-				}else{
-					vDisplayWriteStringAtPos(3,4, "Stop |");
-					vDisplayWriteStringAtPos(3,0, "| |");
-					vDisplayWriteStringAtPos(3,17, "| |");
-					vDisplayWriteStringAtPos(3,11, "|     ");						
-				}
-				if(buttonState & EVBUTTONS_S1){
-					if(taskStateLeibniz == eSuspended){
-						pi_calculated = 0.0;
-						term = 0.0;
-						leibniz_approx_count = 0;
-						sign = 1;		
-						time_ms = 0;							
-						uiMode = UIMODE_NIL_SOM_CALC;
-					}
-				}
-				if(buttonState & EVBUTTONS_S2){
-					if(taskStateLeibniz == eSuspended){
-						startTime = xTaskGetTickCount();
-						vTaskResume(vleibniz_tsk);
-					}else{
-						vTaskSuspend(vleibniz_tsk);
-					}
-				}
-				if(buttonState & EVBUTTONS_S3){
-					if(taskStateLeibniz == eSuspended){			
-						pi_calculated = 0.0;
-						term = 0.0;
-						leibniz_approx_count = 0;
-						sign = 1;
-						time_ms = 0;
-					}					
-				}
-				if(buttonState & EVBUTTONS_S4){
-					if(taskStateLeibniz == eSuspended){
-						pi_calculated = 0.0;
-						term = 0.0;
-						leibniz_approx_count = 0;
-						sign = 1;
-						time_ms = 0;						
-						uiMode = UIMODE_NIL_SOM_CALC;
-					}
-				}				
-			break;
-			case UIMODE_NIL_SOM_CALC:
-				vDisplayClear();
-				eTaskState taskStateNilSom = eTaskGetState(vnil_som_tsk);
-				vDisplayWriteStringAtPos(0,0, "Nilakantha-Reihe:");
-				vDisplayWriteStringAtPos(1,0, "%s", pistring);
-				vDisplayWriteStringAtPos(2,0, "%s", timeString);
-				if(taskStateNilSom == eSuspended){
-					vDisplayWriteStringAtPos(3,4, "Start|");
-					vDisplayWriteStringAtPos(3,0, "|<|");
-					vDisplayWriteStringAtPos(3,17, "|>|");
-					vDisplayWriteStringAtPos(3,11, "|Reset");
-				}else{
-					vDisplayWriteStringAtPos(3,4, "Stop |");
-					vDisplayWriteStringAtPos(3,0, "| |");
-					vDisplayWriteStringAtPos(3,17, "| |");
-					vDisplayWriteStringAtPos(3,11, "|     ");
-				}
-				if(buttonState & EVBUTTONS_S1){
-					if(taskStateNilSom == eSuspended){
-						sign = 1;
-						numerator = 2;
-						pi_calculated = 0.0;
-						time_ms = 0;						
-						uiMode = UIMODE_LEIBNIZ_CALC;
-					}
-				}
-				if(buttonState & EVBUTTONS_S2){
-					if(taskStateNilSom == eSuspended){
-						startTime = xTaskGetTickCount();
-						vTaskResume(vnil_som_tsk);
-					}else{
-						vTaskSuspend(vnil_som_tsk);
-					}
-				}
-				if(buttonState & EVBUTTONS_S3){
-					if(taskStateNilSom == eSuspended){
-						sign = 1;
-						numerator = 2;
-						pi_calculated = 0.0;
-						time_ms = 0;			
-					}
-				}
-				if(buttonState & EVBUTTONS_S4){
-					if(taskStateNilSom == eSuspended){
-						sign = 1;
-						numerator = 2;
-						pi_calculated = 0.0;
-						time_ms = 0;						
-						uiMode = UIMODE_LEIBNIZ_CALC;
-					}
-				}
-			break;
+			xEventGroupClearBits(evCalcTaskEvents, EVCALC_WAIT);
+			vDisplayWriteStringAtPos(0,15, "...");
+					
 		}
 		vTaskDelay(500/portTICK_RATE_MS);
 	}
